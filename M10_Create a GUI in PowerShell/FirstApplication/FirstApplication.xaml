@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <Button x:Name="Button1" Content="Click Me" HorizontalAlignment="Center" Margin="0,114,0,0" VerticalAlignment="Top" RenderTransformOrigin="1.287,0.703"/>
-        <Label x:Name="Label1" Content="Welcome" HorizontalAlignment="Center" Margin="0,163,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="Button1" Content="Click Me" HorizontalAlignment="Center" Margin="0,114,0,0" VerticalAlignment="Top" RenderTransformOrigin="1.287,0.703" FontSize="24"/>
+        <Label x:Name="Label1" Content="Welcome" HorizontalAlignment="Center" Margin="0,163,0,0" VerticalAlignment="Top" FontSize="24"/>
     </Grid>
 </Window>

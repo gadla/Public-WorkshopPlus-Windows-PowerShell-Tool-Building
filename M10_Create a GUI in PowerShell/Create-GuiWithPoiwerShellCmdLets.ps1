@@ -9,7 +9,7 @@ $Form = New-Object System.Windows.Forms.Form
 $Form.Text = "Demo Form"
 $Form.Size = New-Object System.Drawing.Size(400, 200)
 $Form.StartPosition = "CenterScreen"
-$Form.BackColor = [System.Drawing.Color]::White
+$Form.BackColor = [System.Drawing.Color]::Aquamarine
 
 # Create the label
 $Label1 = New-Object System.Windows.Forms.Label
@@ -42,6 +42,15 @@ $Form.ShowDialog()
 
 #--------------------------------------------------
 
+#region Slide 11 Tools to create XAML code - WINUI 2 Gui
+
+# Search for "WinUI 2 Gallery" in the Microsoft Store
+# Install the WinUI 2 Gallery app
+
+# Open the app and explore the controls
+# You can copy the XAML code for the controls you want to use
+
+#--------------------------------------------------
 
 
 #region Slide 21: Using Visual Studio Code to Create a GUI in PowerShell
@@ -57,8 +66,11 @@ $Form.ShowDialog()
     Set the button text to "Click Me"
     Set the label text to "Welcome"
     Save the XAML file
-    Load the XAML file in PowerShell
+    Close Visual Studio
 
+
+
+    Load the XAML file in PowerShell
     Bind the controls to PowerShell variables !!!!
     ----------------------------------------------
 

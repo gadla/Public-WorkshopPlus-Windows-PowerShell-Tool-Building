@@ -1,6 +1,8 @@
 ﻿
 #region Before the presentation - Foreach-Object -Parallel
 #---------------------------------------------------------
+
+# Note: this code requires PowerShell 7.0 or later to run.
 $ScriptBlock = {
     $wait = get-random -Minimum 1 -Maximum 3;start-sleep -Seconds $wait
     Write-Host "I am number $_ , I have slept for $wait seconds"
@@ -20,7 +22,7 @@ Measure-Command -Expression {1..10 | ForEach-Object -parallel $ScriptBlock}
 
 # Run the script with the -throttleLimit parameter. The script will display the numbers 1 to 10 with a random sleep time between 1 and 3 seconds. The output will be displayed in order, with a maximum of 3 commands running in parallel.
 1..10 | ForEach-Object -parallel $ScriptBlock -throttleLimit 3
-Measure-Command -Expression {1..10 | ForEach-Object -parallel $ScriptBlock -throttleLimit 3}
+Measure-Command -Expression {1..10 | ForEach-Object -parallel $ScriptBlock -throttleLimit }
 
 #------------------------------------------------------------
 #endregion Before the presentation - Foreach-Object -Parallel
@@ -48,7 +50,7 @@ $ScriptBlock = {
 $PowerShell.AddScript($ScriptBlock) | Out-Null
 
 # Step 3: Invoke the script synchronously
-Write-Host "Invoking the runspace..."
+Write-Host "Invoking the runspace..." -BackgroundColor Black -ForegroundColor Yellow
 $Result = $PowerShell.Invoke()
 
 # Step 4: Display the results
@@ -95,7 +97,8 @@ $ScriptBlock = {
 # Adding the script to our $PowerShell object will instantiate the runspace.
 $PowerShell.AddScript($ScriptBlock) | Out-Null
 
-# Display the runspaces again, notice the new runspace created using the [PowerShell] type
+# Display the runspaces again, notice the new runspace did not created additional runspace.
+# This is because the runspace is not yet invoked.
 Get-Runspace
 
 $PowerShell.Invoke()
@@ -112,58 +115,78 @@ Get-Runspace
 #endregion Slide 13 - Runspaces Cmdlets
 
 
+#-----------------------------------------------------------------
 
+
+#region Slide 17 Runspace Session State
+
+$Host.Runspace | Select-Object -Property *
+$Host.Runspace.InitialSessionState
+
+#endregion Slide 17 Runspace Session State
 
 
 #-----------------------------------------------------------------
 
 
 
-#region Slide 21 Creating and Iniializing Custom Runspaces
-$Instructor = 'Ely'
+#region Slide 21 Creating and Iniializing Custom Runspaces -  Example 2
+$Name = 'Ely'
 $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault() 
-$sessionVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new("name", $Instructor, 'Description')
+$sessionVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new("Instructor", $Name, 'Description')
 $InitialSessionState.Variables.Add($sessionVariable) 
 $PowerShell = [powershell]::Create($InitialSessionState) 
-$PowerShell.AddScript({Write-Output "`$name is $name";Get-Process | Select-Object -First 5}) | Out-Null
+$PowerShell.AddScript({Write-Output "`$Instructor is $Instructor";Get-Process | Select-Object -First 5}) | Out-Null
 $PowerShell.Invoke()
 $PowerShell.Dispose()
 
-# Change the value of the variable from $name to $var and 
 
 
 <#
-    What else can I do with InitialSessionState?
-    Preload Modules
-    $InitialSessionState.ImportPSModule("ActiveDirectory")
-    $InitialSessionState.ImportPSModulesFromPath("Full Path to your module")
+    What else can you do with InitialSessionState?
 
-    Preload Scripts
-    $InitialSessionState.Scripts.Add("Path\To\StartupScript.ps1")
+    ▶ Preload Modules
+        - Example:
+          $InitialSessionState.ImportPSModule("ActiveDirectory")
+        - or load from a specific folder:
+          $InitialSessionState.ImportPSModulesFromPath("C:\Path\To\Module")
 
-    Restrict Cmdlets
-    $InitialSessionState.Commands.Clear()
-    $WriteOutputCmd = [System.Management.Automation.Runspaces.SessionStateCmdletEntry]::new(
-        "Write-Output", 
-        [Microsoft.PowerShell.Commands.WriteOutputCommand], 
-        $null
-    )
-    $InitialSessionState.Commands.Add($WriteOutputCmd)
-    $sessionVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new("name", "value", $null)
-    $InitialSessionState.Variables.Add($sessionVariable)
-    $PowerShell = [powershell]::Create($InitialSessionState)
-    $PowerShell.AddScript({
-        Write-Output "`$name is $name"
-        Get-Process | Select-Object -First 5 # This should fail
-    })
-    $Result = $PowerShell.Invoke()
-    if ($PowerShell.Streams.Error.Count -gt 0) {
-        $PowerShell.Streams.Error | ForEach-Object { $_.Exception.Message }
-    } else {
-        $Result
-    }
-    $PowerShell.Dispose()
+    ▶ Preload Scripts
+        - Example:
+          $InitialSessionState.Scripts.Add("C:\Path\To\StartupScript.ps1")
 
+    ▶ Restrict Available Cmdlets
+        - You can clear all commands:
+          $InitialSessionState.Commands.Clear()
+        - Then add back only specific ones:
+          $WriteOutputCmd = [System.Management.Automation.Runspaces.SessionStateCmdletEntry]::new(
+              "Write-Output",
+              [Microsoft.PowerShell.Commands.WriteOutputCommand],
+              $null
+          )
+          $InitialSessionState.Commands.Add($WriteOutputCmd)
+
+    ▶ Add Session Variables
+        - Example:
+          $sessionVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new(
+              "name", "value", $null
+          )
+          $InitialSessionState.Variables.Add($sessionVariable)
+
+    ▶ Launch a PowerShell instance with this session state:
+        $PowerShell = [powershell]::Create($InitialSessionState)
+        $PowerShell.AddScript({
+            Write-Output "`$name is $name"
+            Get-Process | Select-Object -First 5  # This should fail because Get-Process is not allowed
+        })
+        $Result = $PowerShell.Invoke()
+
+        if ($PowerShell.Streams.Error.Count -gt 0) {
+            $PowerShell.Streams.Error | ForEach-Object { $_.Exception.Message }
+        } else {
+            $Result
+        }
+        $PowerShell.Dispose()
 #>
 
 #endregion Slide 21 Creating and Iniializing Custom Runspaces
@@ -175,7 +198,8 @@ $PowerShell.Dispose()
 
 
 
-#region Slide 22 Creating and Initializing Custom Runspaces using PSSC file
+#region Slide 22 Creating and Initializing Custom Runspaces using PSSC file - Example 3
+
 
 $PSSessionConfigParams = @{
             ExecutionPolicy             = 'Bypass'
@@ -216,6 +240,35 @@ $Result
 ##############################################################
 # Question: Why is the output empty? What can we do to fix it?
 ##############################################################
+
+<#
+📝 Why is the output empty?
+
+👉 You created a PSSession Configuration File (.pssc) with these restrictions:
+    🔹 VisibleCmdlets only:
+        - Get-Process, Start-Service, Stop-Service
+    🔹 VisibleFunctions only:
+        - Get-Date, Get-Random
+
+🚫 By default, all other functions/cmdlets, including Write-Output, are not visible
+    because they are not on the VisibleCmdlets list.
+
+⚙️ When you run:
+      Write-Output "The value of the variable `Name` is: $Name"
+    inside that constrained session, the command Write-Output is not visible
+    and therefore cannot be found or executed.
+
+❗ That is why you see empty output (effectively the pipeline fails to emit data).
+
+✅ How to fix it?
+
+🛠️ You must explicitly add Write-Output to VisibleCmdlets in the PSSession
+    Configuration file, for example:
+      VisibleCmdlets = @('Get-Process','Start-Service','Stop-Service','Write-Output')
+    then regenerate the .pssc, reload the InitialSessionState, and rerun.
+#>
+
+
 
 # Dispose of the PowerShell instance
 $PowerShell.Dispose()
@@ -272,7 +325,7 @@ $Powershell = [PowerShell]::Create()
 
 # Add a script block to the PowerShell instance
 # The script block simulates work by pausing for 5 seconds and then outputs 'Done'
-$PowerShell.AddScript({Start-Sleep -Seconds 15; Write-Output 'Done'})
+$PowerShell.AddScript({Start-Sleep -Seconds 15; Write-Output 'Done'}) | Out-Null
 
 # Begin asynchronous execution of the script block
 # This starts the script execution but does not block the current thread
@@ -298,7 +351,7 @@ $PowerShell.Dispose()
 
 
 
-#region Slide 37-39 - Using RunspacePool
+#region Slide 38 - Using RunspacePool
 
 $RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, 5) # Create a runspace pool with a minimum of 1 and a maximum of 5 runspaces
 $RunspacePool.Open()                                        # Open the runspace pool
@@ -311,10 +364,12 @@ foreach ($RunspaceInstance in 1..100) {
     $powershellinstance.RunspacePool = $RunspacePool
     # Add a script block to the runspace instance
     [void]$powershellinstance.AddScript({
+        param($id)
         $wait = Get-Random -Minimum 1 -Maximum 3
         Start-Sleep -Seconds $wait
-        Write-Output "Runspace $RunspaceInstance completed in $wait seconds"
-    })
+        Write-Output "Runspace $id completed in $wait seconds"
+    }).AddArgument($RunspaceInstance)
+
     # Add all the data into a results table
     $RunspaceList.Add([PSCustomObject]@{
         RunspaceInstance = $RunspaceInstance
@@ -360,14 +415,14 @@ $RunspacePool.Dispose()
 # Display the collected results
 $RunspacesResults
 
-#endregion Slide 37-39 - Using RunspacePool
+#endregion Slide 38 - Using RunspacePool
 
 
 # -----------------------------------------------------------------
 
 
 
-#region Slides 42-47 - Debugging Runspace 
+#region Slides 43 - Debugging Runspace 
 
 
 # Run this outside of the vscode
@@ -390,14 +445,14 @@ Debug-Runspace -Name 'DebugTest'
 $PowerShell.Dispose()
 
 
-#endregion Slides 42-47 - Debugging Runspace
+#endregion Slides 43 - Debugging Runspace
 
 
 
 # -----------------------------------------------------------------
 
 
-#region Slide 46 Runspace Streams
+#region Slide 45 Runspace Streams
 
 # Create a PowerShell instance
 $PowerShell = [PowerShell]::Create()
@@ -436,146 +491,16 @@ $PowerShell.Streams.Information
 $PowerShell.Dispose()
 
 
-#endregion Slide 46 Runspace Streams
+#endregion Slide 45 Runspace Streams
 
 
 # -----------------------------------------------------------------
 
 
-#region Another Example of RunspacePool
+#############################################
+#         a sample runspace demo            #
+#############################################
+Get-Help -Name 'C:\repo\WorkshopPlus-Windows-PowerShell-Tool-Building-Private\m09_Runspaces\Sample Files\Parallel-FoodDelivery-Demo.ps1' -ShowWindow
+& 'C:\repo\WorkshopPlus-Windows-PowerShell-Tool-Building-Private\m09_Runspaces\Sample Files\Parallel-FoodDelivery-Demo.ps1'
+& 'C:\repo\WorkshopPlus-Windows-PowerShell-Tool-Building-Private\m09_Runspaces\Sample Files\Parallel-FoodDelivery-Demo.ps1' -DeliveryEmployees 30
 
-
-<#
-This PowerShell demo demonstrates the use of runspaces to process multiple customer food orders concurrently, 
-significantly improving efficiency over sequential processing. 
-A runspace pool with up to 100 threads manages the tasks, 
-each representing an order with customer details, a random food item, and an estimated delivery time. 
-The script uses BeginInvoke for asynchronous execution and EndInvoke to collect results after completion. 
-This approach minimizes execution time while logging progress and results, 
-showcasing the power of parallel processing in PowerShell.
-
-You can control the number of delivery employees (runspaces) 
-by adjusting the minimum and maximum values in the CreateRunspacePool method.
-#>
-
-
-# Define the script block that each runspace will execute
-$scriptBlock = {
-    param($CustomerName, $CustomerAddress, $FoodProduct, $wait)
-    Start-Sleep -Seconds $wait
-    "$FoodProduct delivered to $CustomerName at $CustomerAddress, the order took $wait seconds"
-}
- 
-# Create a runspace pool with 5 instances
-$pool = [runspacefactory]::CreateRunspacePool(1, 5) # Change here the number of delivery employees
-$pool.Open()
- 
-# Collection to hold the runspaces
-$runspaces = @()
- 
-# Define customer list
-$customers = @(
-    @{ Name = "John Doe"; Address = "123 Main St" },
-    @{ Name = "Jane Smith"; Address = "456 Oak Ave" },
-    @{ Name = "Alice Brown"; Address = "789 Maple St" },
-    @{ Name = "Bob Johnson"; Address = "101 Pine Rd" },
-    @{ Name = "Chris Evans"; Address = "202 Elm Dr" },
-    @{ Name = "Diana Prince"; Address = "303 Willow Ln" },
-    @{ Name = "Ethan Hunt"; Address = "404 Cedar Ct" },
-    @{ Name = "Fiona Gallagher"; Address = "505 Birch Blvd" },
-    @{ Name = "George Clooney"; Address = "606 Aspen Way" },
-    @{ Name = "Hannah Montana"; Address = "707 Chestnut Ave" },
-    @{ Name = "Bruce Wayne"; Address = "900 Wayne Manor" },
-    @{ Name = "Clark Kent"; Address = "1000 Daily Planet" },
-    @{ Name = "Peter Parker"; Address = "20 Ingram St" },
-    @{ Name = "Tony Stark"; Address = "10880 Malibu Point" },
-    @{ Name = "Natasha Romanoff"; Address = "S.H.I.E.L.D HQ" },
-    @{ Name = "Steve Rogers"; Address = "Brooklyn Heights" },
-    @{ Name = "Thor Odinson"; Address = "Asgard" },
-    @{ Name = "Wanda Maximoff"; Address = "Westview" },
-    @{ Name = "Stephen Strange"; Address = "177A Bleecker St" },
-    @{ Name = "T'Challa"; Address = "Wakanda" },
-    @{ Name = "Bruce Banner"; Address = "Culver University" },
-    @{ Name = "Scott Lang"; Address = "San Francisco" },
-    @{ Name = "Hope Van Dyne"; Address = "San Francisco" },
-    @{ Name = "Carol Danvers"; Address = "Orbit Station" },
-    @{ Name = "Nick Fury"; Address = "The Helicarrier" },
-    @{ Name = "Sam Wilson"; Address = "Washington DC" },
-    @{ Name = "Bucky Barnes"; Address = "Brooklyn" },
-    @{ Name = "Shuri"; Address = "Wakanda Tech Lab" },
-    @{ Name = "Loki Laufeyson"; Address = "The Void" },
-    @{ Name = "Groot"; Address = "Planet X" },
-    @{ Name = "Rocket Raccoon"; Address = "Knowhere" },
-    @{ Name = "Drax"; Address = "The Quadrant" },
-    @{ Name = "Gamora"; Address = "Zen-Whoberi" },
-    @{ Name = "Star-Lord"; Address = "Milano" },
-    @{ Name = "Nebula"; Address = "Thanos' Ship" },
-    @{ Name = "Yondu"; Address = "Ravager Ship" },
-    @{ Name = "Mantis"; Address = "The Quadrant" },
-    @{ Name = "Vision"; Address = "Avengers HQ" },
-    @{ Name = "Pepper Potts"; Address = "Stark Industries" },
-    @{ Name = "Rhodey"; Address = "Avengers HQ" }
-)
- 
-# Define product list
-$products = @(
-    "Pizza", "Burger", "Pasta", "Salad", "Sushi", "Sandwich", "Steak", "Tacos", "Soup", "Dessert"
-)
- 
-# Initialize and start the stopwatch to see how long it took to run all orders
-$sequentialTimer = [System.Diagnostics.Stopwatch]::StartNew()
-$sequentialTimer.Start()
-$TotalWaitSeconds = 0
- 
-# Add customers and products to process
-$customers | ForEach-Object {
-    $product = Get-Random -InputObject $products
-    $wait = Get-Random -Minimum 3 -Maximum 5
-    $TotalWaitSeconds += $wait
-   
-    # Create a new PowerShell object for each customer
-    $ps = [powershell]::Create()
- 
-    # Add the script block to the PowerShell object
-    $ps.AddScript($scriptBlock)  | Out-Null # we are outputing the returning object from $ps.AddScript($scriptBlock) to null
- 
-    # Add each argument for the script block
-    $ps.AddArgument($_.Name)    | Out-Null # Add customer name
-    $ps.AddArgument($_.Address) | Out-Null # Add customer address
-    $ps.AddArgument($product)   | Out-Null # Add food product
-    $ps.AddArgument($wait)      | Out-Null # Add wait time
-   
-    # Set the runspace pool for the PowerShell object
-    $ps.RunspacePool = $pool
- 
-    # Write the order details to the console
-    Write-Host "Order in: $($_.Name) at $($_.Address) for $product, Estimated delivery: $wait seconds" -ForegroundColor Blue
-    Start-Sleep -Milliseconds 200
- 
-    # Begin invoking the script block asynchronously
-    $handle = $ps.BeginInvoke()
- 
-    # Add the runspace and handle to the collection
-    $runspaces += [PSCustomObject]@{Pipe = $ps; Handle = $handle}
-}
- 
-# Wait for all runspaces to complete and collect results
-$results = $runspaces | ForEach-Object {
-    $result = $_.Pipe.EndInvoke($_.Handle)
-    $_.Pipe.Dispose()
-    $result
-}
- 
-# Clean up the runspace pool
-$pool.Close()
-$pool.Dispose()
- 
-# Output the results
-$results | ForEach-Object { Write-Host $_ -ForegroundColor Green }
-$sequentialTimer.Stop()
- 
-# Output the total time taken
-Write-Host "`nAll orders completed in $($sequentialTimer.Elapsed.ToString()) instead of $TotalWaitSeconds seconds" -ForegroundColor Yellow
-$sequentialTimer.Reset()
-
-#endregion Another Example of RunspacePool

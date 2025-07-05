@@ -1,18 +1,159 @@
-﻿#region slide 12 PSBoundParameters
+﻿#region Slide 7 Creating a utility function
+
+function Get-MyService {
+<#
+.SYNOPSIS
+Gets information about a specified Windows service and its required services, 
+on a local or remote computer.
+
+.DESCRIPTION
+This function retrieves the status of the specified service, as well as its required services, 
+and returns a structured object containing:
+- the service name
+- its current status
+- the required services' names
+- their statuses
+- a timestamp
+
+This helps administrators quickly review service dependencies on a machine.
+
+Note: This function requires Windows PowerShell 5.1 or lower because 
+the `Get-Service` cmdlet with the `-ComputerName` parameter is *not* supported in PowerShell 7 and above.
+
+.PARAMETER ServiceName
+The name of the service to check. This parameter is mandatory.
+
+.PARAMETER ComputerName
+The name of the target computer. Defaults to the local computer if not specified.
+
+.EXAMPLE
+Get-MyService -ServiceName spooler
+
+Retrieves the spooler service and its dependencies on the local computer.
+
+.EXAMPLE
+Get-MyService -ServiceName spooler -ComputerName DC01
+
+Retrieves the spooler service and its dependencies on the remote computer DC01.
+
+.OUTPUTS
+[PSCustomObject]
+Returns an object containing the service name, status, required services, their statuses, and timestamp.
+
+#>
+    param (
+        [Parameter(Mandatory)]
+        [string]$ServiceName,
+
+        [string]$ComputerName = $env:COMPUTERNAME
+    )
+
+    Write-Host "Checking required services for '$ServiceName' on $ComputerName..."
+
+    $MainService = Get-Service -Name $ServiceName -ComputerName $ComputerName
+
+    # Get its required services
+    $RequiredService = Get-Service -Name $ServiceName -RequiredServices -ComputerName $ComputerName
+
+    [PSCustomObject]@{
+        ServiceName       = $MainService.Name
+        ServiceStatus     = $MainService.Status
+        RequiredServices  = $RequiredService.Name -join ", "
+        RequiredStatuses  = ($RequiredService | ForEach-Object { "$($_.Name):$($_.Status)" }) -join ", "
+        CheckedAt         = Get-Date
+    }
+}
+
+Get-MyService -ServiceName 'Spooler'
+
+
+
+function Test-HostConnection {
+<#
+.SYNOPSIS
+Tests network connectivity to a specified computer and summarizes the results.
+
+.DESCRIPTION
+This function uses Test-Connection to send ICMP echo requests (pings) to the specified 
+computer and returns a structured report including:
+- the computer name
+- number of successful pings
+- number of pings sent
+- success rate as a percentage
+- timestamp of the check
+
+**Important:** This function is designed to work with PowerShell 5.1 or lower
+- In Windows PowerShell 5.1, Test-Connection typically returns objects only for successful replies. 
+  Failed ping attempts may not be returned depending on switches and parameters.
+- In PowerShell 7 and above, Test-Connection returns an object for *every* attempt, 
+  including those that time out, with the `Status` property indicating `Success` or `TimedOut`.
+
+.PARAMETER ComputerName
+Specifies the name or IP address of the computer to ping.
+This parameter is mandatory.
+
+.PARAMETER Count
+Specifies the number of ping requests to send.
+Defaults to 4 if not specified.
+
+.EXAMPLE
+Test-HostConnection -ComputerName dc01
+
+Sends 4 pings to dc01 and returns the summary report.
+
+.EXAMPLE
+Test-HostConnection -ComputerName 192.168.1.10 -Count 10
+
+Sends 10 pings to the IP address 192.168.1.10 and returns the summary report.
+
+.OUTPUTS
+[PSCustomObject]
+An object containing the target computer name, number of successful pings, 
+number of pings sent, success rate, and timestamp.
+
+
+#>
+    param (
+        [Parameter(Mandatory)]
+        [string]$ComputerName,
+        [int]$Count = 4
+    )
+
+    Write-Host "Testing connectivity to $ComputerName with $Count pings..." -ForegroundColor Green
+
+    $results = Test-Connection -ComputerName $ComputerName -Count $Count
+
+    $successful = $results.Count
+    $successRate = [math]::Round(($successful / $Count) * 100, 1)
+
+    [PSCustomObject]@{
+        ComputerName    = $ComputerName
+        SuccessfulPings = $successful
+        SentPings       = $Count
+        SuccessRate     = "$successRate%"
+        TimeStamp       = Get-Date
+    }
+}
+
+Test-HostConnection -ComputerName www.google.com -Count 8 
+
+#endregion Slide 7 Creating a utility function
+
+#region slide 12 PSBoundParameters
 
 function Test-PSBountParameter {
     param (
-        [string]$DefinedParam
+        [string]$Param1
     )
     # Change the $defined parameter
-    $DefinedParam = 'New Value'
+    $Param1 = 'New Value'
     # Display the original $defined parameter
-    Write-Host "`nOriginal `$DefinedParam parameter value is:$($PSBoundParameters['DefinedParam'])"
+    Write-Host "`nOriginal `$Param1 parameter value is: $($PSBoundParameters['Param1'])" -BackgroundColor Black -ForegroundColor yellow
     # Display the current $defined parameter
-    Write-Host "`nDefined Parameter: $DefinedParam"
+    Write-Host "`nCurrent value of `$Param1 is: $Param1" -BackgroundColor Black -ForegroundColor Green
 }
 
-Test-PSBountParameter -DefinedParam 'MyParam'
+Test-PSBountParameter -Param1 'MyParam'
 
 #endregion slide 12 PSBoundParameters
 
@@ -23,11 +164,11 @@ Test-PSBountParameter -DefinedParam 'MyParam'
 
 function Test-Args {
     param (
-        [string]$DefinedParam
+        [string]$Param1
     )
 
     # Display the defined parameter
-    Write-Host "Defined Parameter: $DefinedParam"
+    Write-Host "Param1 value is: $Param1"
 
     # Display any undefined parameters captured in $args
     if ($args.Count -gt 0) {
@@ -40,8 +181,8 @@ function Test-Args {
     }
 } 
 
-Test-Args -DefinedParam 'Defined' 'one' 55
-
+Test-Args -Param1  'One' 'two' 55
+Test-Args 'One' 'two' 66
 
 #endregion slide 13 $args
 
@@ -56,8 +197,9 @@ function Add-Numbers {
     foreach ($arg in $args){
         $sum += $arg
     }
-    Write-Output $sum
+    Write-Host "Total Sum: $sum" -ForegroundColor Yellow
 }
+
 Add-Numbers 45 76 89 23 74 # 307
 Add-Numbers 32 52 34 12 45 67 89 23 74 # 428
 
@@ -65,7 +207,34 @@ Add-Numbers 32 52 34 12 45 67 89 23 74 # 428
 
 #--------------------------------------------------
 
-#region slide 18 Switch parameter
+
+#region Slide 15 Named Parameters
+
+function Test-NamedParameters {
+    param (
+        [string]$Param1,
+        [int]$Param2
+    )
+    Write-Host "Param1 is: $Param1"
+    Write-Host "Param2 is: $Param2"
+}
+
+Test-NamedParameters -Param1 'Hello' -Param2 42
+Test-NamedParameters -Param2 42 -Param1 'World'
+
+# Using splatting to pass parameters
+$Parameters = @{
+    Param1 = 'Hello'
+    Param2 = 42
+}
+Test-NamedParameters @Parameters
+
+#endregion Slide 15 Named Parameters
+
+
+#--------------------------------------------------
+
+#region slide 17 Switch parameter
 
 function SwitchExample {
     Param([switch]$LightSwitch)
@@ -83,11 +252,32 @@ SwitchExample -LightSwitch
 SwitchExample -LightSwitch:$false
 SwitchExample -LightSwitch:$true
 
-#endregion slide 18 Switch parameter
+# Practical switch parameter use cases:
+# - Toggle compression on/off (e.g. -Archive)
+# - Enable or disable alerting in a monitoring tool (e.g. -EnableAlerting)
+# - Select detailed versus summary report output (e.g. -Detailed)
+# - Force an operation regardless of conditions (e.g. -ForceRestart)
+# - Activate optional features or modules in a script (e.g. -EnableModuleX)
+
+
+#endregion slide 17 Switch parameter
 
 
 #--------------------------------------------------
 
+#region Slide 21 [CmdletBinding()] Attribute - Parameter checks only for valid parameter
+function Test-ValidParameter {
+    [CmdletBinding()]
+    param (
+        [string]$Choice
+    )
+
+    Write-Host "You selected: $Choice" -BackgroundColor Black -ForegroundColor Green
+}
+Test-ValidParameter -Choice 'Option1'  # Valid parameter
+Test-ValidParameter -Choice1 'Option2' # Invalid parameter, will throw an error
+
+#---------------------------------------------------
 
 #region Slide 22 SupportsShouldProcess
 
@@ -100,13 +290,10 @@ function Remove-DemoFile {
 
     # Simulate file removal
     # The "File at '$FilePath'" message is displayed in the -WhatIf output you can set it to anything you want
-    if ($PSCmdlet.ShouldProcess("File at '$FilePath'", "Remove")) {
+    if ($PSCmdlet.ShouldProcess("$FilePath", "Remove")) {
         Write-Host "Simulating file removal at $FilePath" -BackgroundColor black -ForegroundColor Green
         # Actual removal logic would go here, e.g.:
         # Remove-Item -Path $FilePath
-    }
-    else {
-        Write-Host "Operation skipped: $FilePath not removed." -BackgroundColor Black -ForegroundColor Yellow
     }
 }
 
@@ -132,9 +319,7 @@ function Remove-DemoFile {
     # Simulate file removal
     if ($PSCmdlet.ShouldProcess("File at '$FilePath'", "Remove")) {
         Write-Host "Simulating file removal at $FilePath" -BackgroundColor Black -ForegroundColor Green
-    } else {
-        Write-Host "Operation skipped: $FilePath not removed." -BackgroundColor Black -ForegroundColor Yellow
-    }
+    } 
 }
 
 # Notice that the ConfirmImpact is set to 'High' and MUST BE along with SupportsShouldProcess
@@ -154,7 +339,9 @@ Remove-DemoFile -FilePath C:\temp\1.ps1 -Confirm:$false # Skips confirmation
 #region Slide 24 DefaultParameterSetName
 
 function Remove-DemoFile2 {
-    [CmdletBinding(DefaultParameterSetName = 'RelativePath')]
+    [CmdletBinding(DefaultParameterSetName = 'FullPath')]
+    # Note that both parameters are positional parameters
+    # This is a design error, but it is done to demonstrate the DefaultParameterSetName
     param (
         [Parameter(Mandatory, ParameterSetName = 'RelativePath', Position = 0)]
         [string]$RelativePath,
@@ -173,6 +360,7 @@ function Remove-DemoFile2 {
     }
 }
 
+Get-Command Remove-DemoFile2 -Syntax
 Remove-DemoFile2 'C:\temp\1.ps1' 
 # Notice that we are not specifying the parameter name, but the function will use the default parameter set 'RelativePath'
 
@@ -273,7 +461,7 @@ Test-SimpleFunction 'Value1' 'Value2'
 function Test-PositionalBinding {
     [CmdletBinding(PositionalBinding = $false)]
     param (
-        # [parameter(position=0)]
+        [parameter(position=0)]
         [string]$Param1,
 
         [string]$Param2
@@ -283,17 +471,19 @@ function Test-PositionalBinding {
 }
 
 # Calling the function with named parameters
-Test-PositionalBinding -Param1 "Value1" -Param2 "Value2"
-Test-PositionalBinding "Value1" "Value2"
+Test-PositionalBinding -Param1 'Value1' -Param2 'Value2'
+Test-PositionalBinding 'Value1' -Param2 'Value2'
+Test-PositionalBinding -Param2 'Value2' '`Value1'
+Test-PositionalBinding 'Value1' 'Value2'
 
 # Now remove the remark from the [parameter(position=0)] attribute and reload the function
 # This will successfully run using the positional parameter for $Param1
-Test-PositionalBinding "Value1" -Param2 "Value2"
-Test-PositionalBinding -Param2 "Value2" "Value1"
+Test-PositionalBinding 'Value1' -Param2 'Value2'
+Test-PositionalBinding -Param2 'Value2' 'Value1'
 
 # This will result in an error because positional parameters are not supported
-Test-PositionalBinding "Value1" "Value2"
-Test-PositionalBinding -Param1 "Value1" "Value2"
+Test-PositionalBinding 'Value1' 'Value2'
+Test-PositionalBinding -Param1 'Value1' 'Value2'
 
 #endregion Slide 27 PositionalBinding
 
@@ -335,6 +525,22 @@ function Test-AddNumbersUsingInput {
   
 # The $input variable is a collection of objects that are passed to the function
 # The $input variable is an enumerator that contains the input to the function
+
+function Test-AddNumbersUsingInput {
+    $total = 0
+
+    # First, move to the first element
+    $input.MoveNext() | Out-Null
+
+    for (; $input.Current -ne $null; $input.MoveNext()) {
+        $total += $input.Current
+    }
+
+    Write-Host "Total of numbers is $total" -BackgroundColor Black -ForegroundColor Green
+}
+
+1..10 | Test-AddNumbersUsingInput
+2,4,6,8 | Test-AddNumbersUsingInput
 
 # You should prefer using the Begin / Process / End blocks for better performance
 # Using this method, you can process each item as it is received, rather than waiting for all items to be received before processing them.

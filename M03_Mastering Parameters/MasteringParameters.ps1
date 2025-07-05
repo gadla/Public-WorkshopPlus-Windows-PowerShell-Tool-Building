@@ -21,6 +21,8 @@ function Test-ParameterSetName {
 }
 
 Get-Command Test-ParameterSetName -Syntax
+# Note that in the syntax, the parameter Summary is in both parameter sets.
+# This is because we did not specify the ParameterSetName for the Summary parameter.
 
 #endregion Slide 6 ParameterSetName
 
@@ -61,7 +63,7 @@ function Test-PositionParameter {
 # Notice that this demonstrated why you should use named parameters and not positional parameters
 # As a best practice, always use named parameters
 Test-PositionParameter -Name 'John' -EmployeeID 1234
-Test-PositionParameter -EmployeeID 1234 'John'
+Test-PositionParameter 'John' -EmployeeID 1234 
 
 # Reminder: when you declare one parameter as positional you lose the ability to use positional parameters for the rest of the parameters
 Test-PositionParameter 'John' -EmployeeID 1234 # this works
@@ -76,11 +78,13 @@ Test-PositionParameter -Name 'John' 1234       # this will not work
 # -------------------------------------------------
 
 
-#region Slides 8-10 HelpMessage and Remaining Arguments
+#region Slides 8 HelpMessage
 
 function Test-HelpMessage {
 <#
-    .PARAMETER Name
+.Description
+        This function greets a person.
+.PARAMETER Name
     The name of the person to greet.
 #>
     param (
@@ -99,18 +103,21 @@ Get-Help -Name Test-HelpMessage -Parameter Name
 Test-HelpMessage 
 
 
+#endregion Slide 8 HelpMessage 
 
-# Remaining Arguments
+# -------------------------------------------------
+
+#region Slide 9-10 Remaining Arguments
 function Test-NoValueFromRemainingArguments {
     Param($Surname,$GivenName,$MiddleOrOther)  
 
     Write-Host "`$Surname $Surname"
     Write-Host "`$GivenName $GivenName"
-    Write-Host "`$MiddleOrOther $MiddleOrOther“ -BackgroundColor Black -ForegroundColor Green
+    Write-Host "`$MiddleOrOther $MiddleOrOther" -BackgroundColor Black -ForegroundColor Green
 }
 
   # Notice that MiddleOrOther will return only Sally
-  Write-Host 'Without using ValueFromRemainingArguments'
+  Write-Host 'Without using ValueFromRemainingArguments' -BackgroundColor Black -ForegroundColor Green
   Test-NoValueFromRemainingArguments Jane Doe Sally Smith
   
   
@@ -125,14 +132,14 @@ function Test-ValueFromRemainingArguments {
     )
     Write-Host "`$Surname $Surname"
     Write-Host "`$GivenName $GivenName"
-    Write-Host "`$MiddleOrOther $MiddleOrOther“ -BackgroundColor Black -ForegroundColor Green
+    Write-Host "`$MiddleOrOther $MiddleOrOther" -BackgroundColor Black -ForegroundColor Green
 }
 
 # Notice that now #MiddleOrOther is an array of the remaining arguments
-Write-Host 'Using ValueFromRemainingArguments'
+Write-Host 'Using ValueFromRemainingArguments' -BackgroundColor Black -ForegroundColor Green
 Test-ValueFromRemainingArguments Jane Doe Sally Smith  
 
-#endretion Slide 8-10 HelpMessage and Remaining Arguments
+#endregion Slide 9-10 Remaining Arguments
 
 
 
@@ -164,6 +171,11 @@ Test-AliasParameter -ComputerName MyComputer
 Test-AliasParameter -cn MySecondComputer
 Test-AliasParameter -MachineName MyThirdComputer
 
+# Practical [Alias()] parameter use cases:
+# - Preserve backward compatibility after renaming a parameter (e.g. keep -ServerName working after switching to -ComputerName)
+# - Align with external or third-party naming conventions for familiarity (e.g. -ResourceName for -VMName)
+# - Enhance usability by allowing multiple common names for the same parameter (e.g. -Host, -Node, -Server all map to -ComputerName)
+
 
 
 #endretion Slide 14 Alias attribute
@@ -183,6 +195,7 @@ function Get-CpuCounter {
 }
     
 Get-CpuCounter -perfcounter #Now hit CRTL+Space to display the predefined values
+Get-CpuCounter -perfcounter "Memory\Available MBytes"
 
 #endregion Slide 15 ValidateSet
 
@@ -196,7 +209,7 @@ Get-CpuCounter -perfcounter #Now hit CRTL+Space to display the predefined values
 function Get-AllowNull{
     Param(
         [Parameter(Mandatory)] # When Mandatory is set, the parameter cannot be $null
-        [AllowNull()] # Uncomment this line to allow $null
+        #[AllowNull()] # Uncomment this line to allow $null
         [hashtable]
         $ComputerInfo
     )
@@ -252,27 +265,30 @@ Get-AllowEmptyCollection -ComputerName @()
 #region Slide 17 Not null validation attributes
 
 # ValidateNotNull
-function Test-ValidateNotNull {
+function Get-ValidateNotNull {
     Param(
-        [Parameter(Mandatory)] # When Mandatory is set, the parameter cannot be $null
-        # [ValidateNotNull()] # Uncomment this line to allow $null
-        [string[]]
-        $UserName
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]  # Comment this line to allow $null
+        [string[]]$ComputerName
     )
-    Write-Host "`$username passed is: $UserName" -BackgroundColor Black -ForegroundColor Green
+
+    Write-Output $ComputerName
 }
 
-Test-validateNotNull -UserName 'Gadi'
-Test-ValidateNotNull -UserName $null
-# Now remove the remark from ValidateNotNull attribute and try to pass $null
-Test-ValidateNotNull -UserName $null
+Get-ValidateNotNull -ComputerName $null
+# This will throw an error because $null is not allowed by ValidateNotNull
+
+# Comment the ValidateNotNull line in the function definition to see the difference
+Get-ValidateNotNull -ComputerName $null
+# This will throw an error because of how PowerShell handles parameter binding
+
 
 
 # NotNullOrEmpty
 function Test-ValidateNotNullOrEmpty {
     Param(
         [Parameter(Mandatory)] # When Mandatory is set, the parameter cannot be an empty string
-        # [ValidateNotNullOrEmpty()] # Uncomment this line to allow an empty string
+         [ValidateNotNullOrEmpty()] # Uncomment this line to allow an empty string
         [string[]]
         $UserName
     )
@@ -285,6 +301,9 @@ Test-ValidateNotNullOrEmpty -UserName $null
 # Now remove the remark from ValidateNotNullOrEmpty attribute and try to pass an empty string
 Test-ValidateNotNullOrEmpty -UserName ''
 Test-ValidateNotNullOrEmpty -UserName $null
+
+# Note again although there is an error on both cases one is created by PowerShell's way of Parameter binding
+# Yet, after using ValidateNotNullOrEmpty the error comes from the validation attribute itself
 
 
 #endregion Slide 17 Not null validation attributes
@@ -350,7 +369,7 @@ function Test-ComputernameCharacters {
 
     foreach ($character in $ComputerName) {
         # Custom validation logic
-        if ($character -notmatch '^[a-zA-Z0-9]+$') {
+        if ($character -notmatch '^[a-zA-Z0-9]+$' -or $ComputerName.Length -gt 15) {
             Write-Error "Invalid computer name: '$name'. Only alphanumeric characters are allowed." -ErrorAction SilentlyContinue
             return $false
         }
@@ -408,15 +427,40 @@ function Test-ValidateScript {
         [Parameter(Mandatory)]
         [ValidateScript({$_ -lt 10})]
         [int]
-        $ApaMinerala
+        $Soda
     )
-    Write-Host "Apa Minerala price is reasonable" -BackgroundColor Black -ForegroundColor Green
+    Write-Host "Soda price is reasonable" -BackgroundColor Black -ForegroundColor Green
 }
 
-Test-ValidateScript -ApaMinerala 5
-Test-ValidateScript -ApaMinerala 15
+Test-ValidateScript -Soda 5
+Test-ValidateScript -Soda 15
 
 
+# Why use an auxiliary function for validation?
+# - Keeps the main function’s parameter block clean and easy to read
+# - Separates the validation logic from the business logic, improving clarity
+# - Makes the validation reusable for other functions in your script
+# - Supports easier testing and maintenance of the validation rules
+# - Overall, improves readability and maintainability of your parent function
+
+
+function Test-MyValidator {
+    param($price)
+    return ($price -lt 10)
+}
+
+function Test-ValidateScript {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateScript({ Test-MyValidator $_ })]
+        [int]
+        $Soda
+    )
+    Write-Host "Soda price is reasonable" -BackgroundColor Black -ForegroundColor Green
+}
+
+Test-ValidateScript -Soda 5
+Test-ValidateScript -Soda 15
 
 
 #endregion Slide 19 Range and Script Validate Attributes
@@ -426,53 +470,9 @@ Test-ValidateScript -ApaMinerala 15
 
 
 
-#region Slide 22 Comment Based Help
-
-<#
-.SYNOPSIS
-Simulates or terminates a process by name with confirmation prompts.
-
-.DESCRIPTION
-The Test-KillProcess cmdlet identifies a process by its name and attempts to terminate it if the user confirms the action.
-It leverages the ShouldProcess method to prompt the user for confirmation before proceeding with the termination.
-This cmdlet is designed for safe execution with the -WhatIf and -Confirm switches to simulate or confirm the process termination.
-
-.PARAMETER Name
-Specifies the name of the process to terminate. This is the name of the process as displayed in Task Manager (e.g., "notepad").
-
-.INPUTS
-System.String
-The cmdlet accepts a string specifying the process name.
-
-.OUTPUTS
-None
-This cmdlet does not return any output but provides status messages indicating whether the operation succeeded or was skipped.
-
-.NOTES
-- This cmdlet uses the Kill method to terminate the process.
-- Use the -WhatIf switch to simulate the operation without making changes.
-- The ConfirmImpact is set to Medium, meaning confirmation prompts depend on the user's `$ConfirmPreference` setting.
-
-.EXAMPLE
-Test-KillProcess -Name 'notepad'
-Simulates or terminates the process named 'notepad' based on user confirmation.
-
-.EXAMPLE
-Test-KillProcess -Name 'notepad' -WhatIf
-Simulates the termination of the process 'notepad' without actually killing it. The cmdlet will display what it would have done.
-
-.EXAMPLE
-Test-KillProcess -Name 'notepad' -Confirm
-Prompts the user for confirmation before terminating the process named 'notepad'.
+#region Slide 26 Supporting Risk Mitigation - Example
 
 
-.LINK
-https://learn.microsoft.com/en-us/powershell/scripting/
-
-.COMPONENT
-Process Management
-
-#>
 Function Test-KillProcess
 {
     [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='Medium')]
@@ -488,24 +488,105 @@ Function Test-KillProcess
 }
 
 Get-Help -Name Test-KillProcess -ShowWindow
+Start-Process -FilePath (Get-Command -Name mspaint.exe).Source
+Test-KillProcess -Name mspaint -WhatIf
 
-#endregion Slide 22 Comment Based Help
+Function Test-KillProcess
+{
+    [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+    Param(
+        [String]$Name
+    )
+
+    $TargetProcess = Get-Process -Name $Name
+    If ($pscmdlet.ShouldProcess($Name, "Terminating Process"))
+    {
+        $TargetProcess.Kill()
+    }
+}
+
+Test-KillProcess -Name mspaint
+Test-KillProcess -Name mspaint -Confirm:$false
+
+
+#endregion Slide 26 Supporting Risk Mitigation - Example
 
 
 
 # -------------------------------------------------
 
+#region Slide 31 Help example
 
 
-#region Slide 25 OutputType
-##################################################################################
-##################################################################################
-##################################################################################
-#TODO: fix the output type
-##################################################################################
-##################################################################################
-##################################################################################
+function Test-KillProcess {
+    <#
+    .SYNOPSIS
+    Safely terminates a process by its name with confirmation and WhatIf support.
 
+    .DESCRIPTION
+    The Test-KillProcess function retrieves a process by its name and attempts to terminate it.
+    It uses CmdletBinding with SupportsShouldProcess and a ConfirmImpact level of High, so that you can preview
+    and confirm before performing a potentially destructive action.
+    This helps protect critical processes from being terminated accidentally.
+
+    .PARAMETER Name
+    Specifies the name of the process you want to terminate.
+    This should match the name shown in Task Manager or returned by Get-Process.
+
+    .EXAMPLE
+    Test-KillProcess -Name notepad
+
+    Prompts for confirmation (due to ConfirmImpact High) before attempting to terminate all Notepad processes.
+
+    .EXAMPLE
+    Test-KillProcess -Name explorer -WhatIf
+
+    Displays what would happen if you tried to terminate the Explorer process, but does not actually kill it.
+
+    .EXAMPLE
+    Test-KillProcess -Name powershell -Confirm:$false
+
+    Explicitly bypasses confirmation prompts when terminating PowerShell, demonstrating how to override Confirm.
+
+    .INPUTS
+    [String]
+    Accepts the name of a process as a string.
+
+    .OUTPUTS
+    None.
+    This function does not produce output, but will terminate the specified process if confirmed.
+
+    .NOTES
+    Author: YourName
+    Date: 2025-07-03
+    Demo function for illustrating SupportsShouldProcess with ConfirmImpact.
+
+    .LINK
+    https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/supportsshouldprocess?view=powershell-7.4
+    #>
+    [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+    Param(
+        [Parameter(Mandatory)]
+        [String]$Name
+    )
+
+    $TargetProcess = Get-Process -Name $Name -ErrorAction Stop
+    If ($pscmdlet.ShouldProcess($Name, "Terminating Process"))
+    {
+        $TargetProcess.Kill()
+    }
+}
+
+
+Get-Help -Name Test-KillProcess -ShowWindow
+
+#endregion Slide 31 Help example
+
+
+#--------------------------------------------------
+
+
+#region Slide 33 OutputType
 
 function Test-OutputType {
     [CmdletBinding()]
@@ -524,16 +605,10 @@ Test-OutputType -Number 5
 
 (Get-Command -Name Test-OutputType).OutputType
 <# The output will be:
-Name         Type         TypeDefinitionAst
-----         ----         -----------------
-System.Int32 System.Int32
+Name            Type            TypeDefinitionAst
+----            ----            -----------------
+System.DateTime System.DateTime
 #>
-
-(Test-OutputType -Number 5).GetType().FullName
-<# The output will be:
-System.Int32
-#>
-
 
 
 #endregion Slide 32 OutputType
